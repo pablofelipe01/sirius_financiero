@@ -130,6 +130,8 @@ function CajaMenorDashboard({ userData, onLogout }: { userData: UserData, onLogo
   // Estados para beneficiarios
   const [beneficiarios, setBeneficiarios] = useState<Array<{ nombre: string; nitCC: string }>>([]);
   const [esNuevoBeneficiario, setEsNuevoBeneficiario] = useState(false);
+  const [searchBeneficiario, setSearchBeneficiario] = useState('');
+  const [showBeneficiarioDropdown, setShowBeneficiarioDropdown] = useState(false);
 
   // Ref para reabrir el modal de items después de que el formulario de edición cierre
   const returnToItemsCajaRef = useRef<CajaMenorRecord | null>(null);
@@ -961,6 +963,9 @@ function CajaMenorDashboard({ userData, onLogout }: { userData: UserData, onLogo
           realizaRegistro: item.realizaRegistro || userData?.nombre || 'Usuario',
           comprobanteFile: null
         });
+        setSearchBeneficiario(item.beneficiario || '');
+        setEsNuevoBeneficiario(false);
+        setShowBeneficiarioDropdown(false);
         setShowModal(true);
       }
     } else {
@@ -1201,6 +1206,9 @@ function CajaMenorDashboard({ userData, onLogout }: { userData: UserData, onLogo
           realizaRegistro: userData?.nombre || 'Usuario',
           comprobanteFile: null
         });
+        setSearchBeneficiario('');
+        setShowBeneficiarioDropdown(false);
+        setEsNuevoBeneficiario(false);
         await cargarDatos();
         setLoading(false);
         return;
@@ -1313,6 +1321,8 @@ function CajaMenorDashboard({ userData, onLogout }: { userData: UserData, onLogo
     setEditingItem(null);
     setEsNuevoBeneficiario(false);
     setAudioBlob(null);
+    setSearchBeneficiario('');
+    setShowBeneficiarioDropdown(false);
     // Limpiar datos guardados cuando se resetea el formulario
     clearFormDataFromStorage();
   };
@@ -2288,6 +2298,9 @@ function CajaMenorDashboard({ userData, onLogout }: { userData: UserData, onLogo
                       realizaRegistro: userData?.nombre || 'Usuario',
                       comprobanteFile: null
                     });
+                    setSearchBeneficiario('');
+                    setShowBeneficiarioDropdown(false);
+                    setEsNuevoBeneficiario(false);
                   }}
                   className="p-2 md:p-3 hover:bg-slate-700/50 rounded-xl transition-all duration-200 border border-white/20 hover:border-white/40"
                 >
@@ -2368,60 +2381,141 @@ function CajaMenorDashboard({ userData, onLogout }: { userData: UserData, onLogo
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-bold text-white mb-3 flex items-center gap-2">
                       <User className="w-4 h-4 text-blue-400" />
                       Beneficiario *
                     </label>
-                    <select
-                      value={esNuevoBeneficiario ? 'nuevo' : formData.beneficiario}
-                      onChange={(e) => {
-                        if (e.target.value === 'nuevo') {
-                          setEsNuevoBeneficiario(true);
-                          setFormData(prev => ({ ...prev, beneficiario: '', nitCC: '' }));
-                        } else {
-                          setEsNuevoBeneficiario(false);
-                          const beneficiarioSeleccionado = beneficiarios.find(b => b.nombre === e.target.value);
-                          if (beneficiarioSeleccionado) {
-                            setFormData(prev => ({ 
-                              ...prev, 
-                              beneficiario: beneficiarioSeleccionado.nombre,
-                              nitCC: beneficiarioSeleccionado.nitCC 
-                            }));
-                          }
-                        }
-                      }}
-                      className="w-full px-4 py-3 bg-slate-700/60 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400 transition-all duration-200 appearance-none cursor-pointer hover:bg-slate-700/80"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239CA3AF' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                        backgroundPosition: 'right 0.75rem center',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundSize: '1.5rem 1.5rem',
-                        paddingRight: '2.5rem'
-                      }}
-                      required={!esNuevoBeneficiario}
-                    >
-                      <option value="" className="bg-slate-800 text-white/70">Seleccionar beneficiario</option>
-                      {beneficiarios.map((beneficiario, index) => (
-                        <option key={index} value={beneficiario.nombre} className="bg-slate-800 text-white">
-                          👤 {beneficiario.nombre}
-                        </option>
-                      ))}
-                      <option value="nuevo" className="bg-slate-800 text-white">➕ Nuevo Beneficiario</option>
-                    </select>
-                    
-                    {esNuevoBeneficiario && (
-                      <div className="mt-3 animate-fadeIn">
+
+                    {/* Dropdown con búsqueda */}
+                    <div className="relative">
+                      <div className="relative">
                         <input
                           type="text"
-                          value={formData.beneficiario}
-                          onChange={(e) => setFormData(prev => ({ ...prev, beneficiario: e.target.value }))}
-                          placeholder="✏️ Nombre del nuevo beneficiario"
-                          className="w-full px-4 py-3 bg-slate-700/60 border border-blue-400/40 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400 transition-all duration-200"
+                          value={esNuevoBeneficiario ? formData.beneficiario : searchBeneficiario}
+                          onChange={(e) => {
+                            if (esNuevoBeneficiario) {
+                              setFormData(prev => ({ ...prev, beneficiario: e.target.value }));
+                            } else {
+                              setSearchBeneficiario(e.target.value);
+                              setShowBeneficiarioDropdown(true);
+                            }
+                          }}
+                          onFocus={() => !esNuevoBeneficiario && setShowBeneficiarioDropdown(true)}
+                          placeholder={esNuevoBeneficiario ? "✏️ Nombre del nuevo beneficiario" : "🔍 Buscar beneficiario..."}
+                          className="w-full px-4 py-3 pr-10 bg-slate-700/60 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400 transition-all duration-200"
                           required
                         />
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50 pointer-events-none" />
                       </div>
-                    )}
+
+                      {/* Dropdown con opciones filtradas */}
+                      {showBeneficiarioDropdown && !esNuevoBeneficiario && (
+                        <>
+                          {/* Overlay para cerrar al hacer click fuera */}
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setShowBeneficiarioDropdown(false)}
+                          />
+
+                          <div className="absolute z-20 w-full mt-2 bg-slate-800/95 backdrop-blur-sm border border-white/20 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
+                            {(() => {
+                              const beneficiariosFiltrados = beneficiarios.filter(b =>
+                                b.nombre.toLowerCase().includes(searchBeneficiario.toLowerCase())
+                              );
+
+                              return (
+                                <>
+                                  {beneficiariosFiltrados.length > 0 ? (
+                                    beneficiariosFiltrados.map((beneficiario, index) => (
+                                      <button
+                                        key={index}
+                                        type="button"
+                                        onClick={() => {
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            beneficiario: beneficiario.nombre,
+                                            nitCC: beneficiario.nitCC
+                                          }));
+                                          setSearchBeneficiario(beneficiario.nombre);
+                                          setShowBeneficiarioDropdown(false);
+                                        }}
+                                        className="w-full px-4 py-3 text-left hover:bg-blue-600/20 transition-colors flex items-center gap-2 text-white border-b border-white/10 last:border-0"
+                                      >
+                                        <User className="w-4 h-4 text-blue-400" />
+                                        <span>{beneficiario.nombre}</span>
+                                        {beneficiario.nitCC && (
+                                          <span className="ml-auto text-xs text-white/50">{beneficiario.nitCC}</span>
+                                        )}
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <div className="px-4 py-3 text-white/50 text-sm">
+                                      No se encontraron beneficiarios
+                                    </div>
+                                  )}
+
+                                  {/* Opción de nuevo beneficiario */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEsNuevoBeneficiario(true);
+                                      setFormData(prev => ({ ...prev, beneficiario: '', nitCC: '' }));
+                                      setSearchBeneficiario('');
+                                      setShowBeneficiarioDropdown(false);
+                                    }}
+                                    className="w-full px-4 py-3 text-left hover:bg-green-600/20 transition-colors flex items-center gap-2 text-green-400 font-semibold border-t-2 border-green-400/30"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                    <span>Nuevo Beneficiario</span>
+                                  </button>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      )}
+
+                      {/* Indicador de beneficiario seleccionado */}
+                      {!esNuevoBeneficiario && formData.beneficiario && (
+                        <div className="mt-2 px-3 py-2 bg-blue-600/20 border border-blue-400/30 rounded-lg flex items-center justify-between">
+                          <span className="text-sm text-white flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-green-400" />
+                            Seleccionado: <strong>{formData.beneficiario}</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, beneficiario: '', nitCC: '' }));
+                              setSearchBeneficiario('');
+                            }}
+                            className="text-xs text-red-400 hover:text-red-300 hover:underline"
+                          >
+                            Cambiar
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Indicador de nuevo beneficiario */}
+                      {esNuevoBeneficiario && (
+                        <div className="mt-2 px-3 py-2 bg-green-600/20 border border-green-400/30 rounded-lg flex items-center justify-between">
+                          <span className="text-sm text-green-400 flex items-center gap-2">
+                            <Plus className="w-4 h-4" />
+                            Nuevo beneficiario
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEsNuevoBeneficiario(false);
+                              setFormData(prev => ({ ...prev, beneficiario: '', nitCC: '' }));
+                            }}
+                            className="text-xs text-red-400 hover:text-red-300 hover:underline"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -2639,6 +2733,9 @@ function CajaMenorDashboard({ userData, onLogout }: { userData: UserData, onLogo
                         realizaRegistro: userData?.nombre || 'Usuario',
                         comprobanteFile: null
                       });
+                      setSearchBeneficiario('');
+                      setShowBeneficiarioDropdown(false);
+                      setEsNuevoBeneficiario(false);
                     }}
                     className="px-4 md:px-6 py-2 md:py-3 bg-slate-600 hover:bg-slate-700 text-white rounded-xl font-semibold transition-colors text-sm md:text-base"
                   >

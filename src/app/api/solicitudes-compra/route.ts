@@ -125,22 +125,53 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    // Si existe sesión autenticada, intentar extraer el recordId del usuario
+    // Si existe sesión autenticada, buscar al usuario en la base Financiera
     let userRecordId: string | undefined = undefined;
     try {
       const token = request.cookies.get('auth-token')?.value;
       const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
       if (token) {
         const decoded = jwt.verify(token, JWT_SECRET) as Record<string, unknown>;
-        userRecordId = typeof decoded.recordId === 'string' ? decoded.recordId : undefined;
-        if (userRecordId) {
-          // Campo link a Equipo Financiero (ID del registro)
-          solicitudRecord.fields['Equipo Financiero'] = [userRecordId];
+        const cedula = typeof decoded.cedula === 'string' ? decoded.cedula : undefined;
+
+        // Buscar al usuario en la tabla "Equipo Financiero" de la base Financiera usando su cédula
+        if (cedula) {
+          try {
+            const equipoTableId = process.env.AIRTABLE_TEAM_TABLE_NAME || 'Equipo Financiero';
+            const searchUrl = `https://api.airtable.com/v0/${baseId}/${equipoTableId}`;
+            const filterFormula = `{Cedula} = "${cedula}"`;
+
+            const searchResponse = await fetch(
+              `${searchUrl}?filterByFormula=${encodeURIComponent(filterFormula)}`,
+              {
+                method: 'GET',
+                headers,
+              }
+            );
+
+            if (searchResponse.ok) {
+              const searchData = await searchResponse.json();
+              if (searchData.records && searchData.records.length > 0) {
+                // Usuario encontrado en la base Financiera
+                userRecordId = searchData.records[0].id;
+                solicitudRecord.fields['Equipo Financiero'] = [userRecordId];
+                console.log(`✅ Usuario vinculado: ${userRecordId} (cédula: ${cedula})`);
+              } else {
+                console.warn(`⚠️ Usuario con cédula ${cedula} no encontrado en base Financiera - solicitud se creará sin vínculo`);
+              }
+            } else {
+              console.warn(`⚠️ Error buscando usuario en base Financiera (status ${searchResponse.status})`);
+            }
+          } catch (searchError) {
+            console.warn('⚠️ Error buscando usuario en base Financiera:', searchError);
+          }
+        } else {
+          console.warn('⚠️ No se encontró cédula en el JWT');
         }
       }
     } catch (err) {
       // No bloquear: si el token es inválido o no existe, continuamos sin el enlace
-      console.warn('No se pudo obtener recordId desde la sesión:', err);
+      console.warn('No se pudo obtener cédula desde la sesión:', err);
       userRecordId = undefined;
     }
 
